@@ -1,69 +1,313 @@
-/actuator - actuator endpoints
-# Spring boot admin
-/api/applications - spring boot admin application endpoints
-/api/applications/<appId> - spring boot admin endpoints by application id
-/api/notifications
-/api/journal
-# Swagger
-/swagger-ui.html - swagger UI conviguration
-/swagger-resources - version etc.
-/swagger-resources/configuration/ui - ui configuration for swagger
-/swagger-resources/configuration/security - security configuration for swagger
-/v2/api-docs - swagger api endpoint
+# API сервера трансформации и хранения документов
 
-### UI Endpoints:
+## Предназначено для хранения и преобразования различных документов с помощью конвееров обработки и поиска по ним.
 
-- Vaadin UI `localhost:9000/`
+### Типы документов:
 
-### API endpoints
+- .epub
+- видео
+- аудио
+- изображения
+- документы офисного формата (.doc, .xls, .odt, .ods, .pdf)
 
-- REST/HATEOAS API `localhost:9000/api`
+### Типы трансформаций
+
+- epub_verify - верификация .epub с отчётом
+- epub_merge - склейка нескольких epub
+- epub_split - разрезание epub
+- unzip - распаковка любых архивов
+- doc2html - преобразование документов формата .doc, .odt в html
+- xls2html - преобразование документов формата .xls, .ods в html
+- video2web - преобразование любого распознанного формата видео в DASH/HLS контент для репрезентации в веб-бразуезерах
+- audio2web - тоже самое для аудио
+- picture2web - подготовка картинки в разных разрешениях для показа на различных устройствах
+- ifok - Если результат предыдущих трансформаций успешен
+- iferror - Если результат предыдущих трансформаций неуспешен
+- ifwarning - если возникли предупреждения
+- else - Иначе
+- deleteorig - удалить исходный файл
+- deletestorage - удалить весь storage
+
+## Общее описание API
+
+При описании API сервер будет называться http://filestorage.com
+
+Файлы загружаются на endpoint http://filestorage.com/upload с помощью запроса post
+
+Эквивалентная форма в html выглядит так:
+
+```
+<form action="/upload"
+   enctype="multipart/form-data" method="post">
+   <p><input type="file" name="имя файла.расширение"></p>
+</form>
+```
+
+Эквивалентный запрос с помощью curl выглядит так:
+
+```
+curl -F "name=имя файла.расширение -F "file=@/Users/I/Pictures/test.jpg" http://filestorage.com/upload
+```
+
+Результат загрузки от сервера в виде json будет выглядеть так:
+
+```
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000", //uuid in storage
+  "name": "имя файла.расширение",               // file name
+  "uploaded": "1507098783", 	                // unix timestamp
+  "user": "bob"                                 // Имя пользователя из oauth2 аутентификации
+}
+```
+
+Хранилище файла - это каталог с именем id. В успешно созданное хранилище впоследствии можно добавлять файлы по этому же URL с добавлением Id, например:
+
+```
+curl -F "name=имя файла.расширение -F "file=@/Users/I/Pictures/test.jpg" http://filestorage.com/upload/550e8400-e29b-41d4-a716-44665544000
+```
+
+При этом результат загрузки от сервера в виде json будет выглядеть так:
+
+```
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000", //uuid in storage
+  "name": "имя файла.расширение",               // file name
+  "uploaded": "1507098787", 	                // unix timestamp
+  "user": "bob"                                 // Имя пользователя из oauth2 аутентификации
+}
+```
+
+Несколько файлов также могут быть загружены в виде zip-архива с указанием задачи распаковки.
 
 
-### Swagger endpoints
+Над самим хранилищем, как и над всеми файлами хранилища допустимы все FRD-операции (Find, Read, Delete).
 
-- See http://www.baeldung.com/swagger-2-documentation-for-spring-rest-api
-- All Swagger Resources(groups) `http://localhost:9000/swagger-resources`
-- Swagger UI endpoint: `http://localhost:9000/swagger-ui.html`
-- Swagger docs endpoint: `http://localhost:9000/v2/api-docs`
+FRD-операции осуществляются по отношению к endpoint /files
 
-### Actuator endpoints
+Например:
 
-- See https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-monitoring.html
+- Удаление хранилища:
+```
+curl -X DELETE http://filestorage.com/files/550e8400-e29b-41d4-a716-44665544000
+```
 
-- Provides a hypermedia-based “discovery page” for the other endpoints. Requires Spring HATEOAS to be on the classpath. Auth: true `http://localhost:9001/actuator`
+- Удаление файла в хранилище:
 
-- Exposes audit events information for the current application. Auth: true  `http://localhost:9001/auditevents`
+```
+curl -X DELETE http://filestorage.com/files/550e8400-e29b-41d4-a716-44665544000/имя%20файла.расширение
+```
 
-- Displays an auto-configuration report showing all auto-configuration candidates and the reason why they ‘were’ or ‘were not’ applied. Auth: true `http://localhost:9001/autoconfig`
+- Чтение файла из хранилища:
 
-- Displays a complete list of all the Spring beans in your application. Auth: true `http://localhost:9001/beans`
+```
+curl http://filestorage.com/files/550e8400-e29b-41d4-a716-44665544000/имя%20файла.расширение
+```
 
-- Displays a collated list of all @ConfigurationProperties. Auth: true `http://localhost:9001/configprops`
+- Чтение содержимого хранилища с пагинацией:
+```
+curl http://filestorage.com/files/550e8400-e29b-41d4-a716-44665544000
+```
 
-- Performs a thread dump. Auth: true `http://localhost:9001/dump`
+- Чтение всех хранилищ с пагинацией:
+```
+curl http://filestorage.com/files
+```
 
-- Exposes properties from Spring’s ConfigurableEnvironment. Auth: true `http://localhost:9001/env`
+HATEOAS-ответ будет в таком виде:
 
-- Shows any Flyway database migrations that have been applied. Auth: true `http://localhost:9001/flyway`
+```
+{
+  "_links" : {
+    "self" : {
+      "href" : "http://localhost:8080/files{?page,size,sort}",
+      "templated" : true
+    },
+    "search" : {
+      "href" : "http://localhost:8080/files/search"
+    }
+  },
+  "_embedded" : {
+"files": [
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000", 
+  "name": "имя файла.расширение",               
+  "uploaded": "1507098787",                   
+  "user": "bob",
+  "_links" : {
+        "self" : {
+          "href" : "http://localhost:8080/files/550e8400-e29b-41d4-a716-446655440000"
+        }
+  }                               
+}
+]
+  },
+  "page" : {
+    "size" : 20,
+    "totalElements" : 1,
+    "totalPages" : 1,
+    "number" : 0
+  }
+}
+```
 
-- Shows application health information (when the application is secure, a simple ‘status’ when accessed over an unauthenticated connection or full message details when authenticated). Auth: false `http://localhost:9001/health`
+Примеры поиска (HATEOAS-ответы будут в виде, приведённом выше):
 
-- Displays arbitrary application info. Auth: faslse `http://localhost:9001/info`
+```
+curl http://filestorage.com/files/search/findByName?name=имя%20файла.расширение
 
-- Shows and modifies the configuration of loggers in the application. Auth: true `http://localhost:9001/loggers`
+curl http://filestorage.com/files/search/findByNameLikeIgnoreCase?name=иМя%20файЛа
 
-- Shows any Liquibase database migrations that have been applied. Auth: true `http://localhost:9001/liquibase`
+curl http://filestorage.com/files/search/findByTagNameLikeIgnoreCase?name=viDeo
 
-- Shows ‘metrics’ information for the current application. Auth: true `http://localhost:9001/metrics`
+curl http://filestorage.com/files/search/findByContentLikeIgnoreCase?content=Об%20этом%20уроке
+```
 
-- Displays a collated list of all @RequestMapping paths. Auth: true `http://localhost:9001/mappings`
+и т.д. 
 
-- Allows the application to be gracefully shutdown (not enabled by default). Auth: true `http://localhost:9001/shutdown`
+Список всех доступных файндеров можно получить в виде HATEOAS-ответа по адресу:
 
-- Displays trace information (by default the last 100 HTTP requests). Auth: true `http://localhost:9001/trace`
+```
+curl http://filestorage.com/files/search
+```
 
-### Admin console endpoints
+Ответ будет в таком виде:
 
-- See: http://codecentric.github.io/spring-boot-admin/1.5.4/#getting-started
-- Admin console `http://localhost:9000/admin`
+```
+{
+  "_links" : {
+    "findByName" : {
+      "href" : "http://filestorage.com/files/search/findByLastName{?name}",
+      "templated" : true
+    }
+  }
+}
+```
+
+### Работа с трансформациями
+
+Рассмотрим пример:
+ 
+- Загрузить несколько файлов .epub в виде zip-архива
+- Проверить их на корректность
+- Если нет ошибок, удалить исходный .zip - файл  
+- Если есть ошибки - удалить весть storage
+
+```
+curl \
+-F "name=имя файла.расширение \
+-F "file=@/Users/I/Pictures/test.zip" \
+http://filestorage.com/upload/550e8400-e29b-41d4-a716-44665544000?transform=unzip,iferror,deletestorage,else,epubverify,iferror,deletestorage,else,{deleteorig,epubmerge}
+```
+Как видно из примера, операции конвеера можно группирровать с помощью фигурных скобок
+
+> В седующей версии продукта будут предложены более изощрённые способы управления конвеером трансформаций.
+
+## Обработка ошибок
+
+При возникновении ошибок на любом этапе (загрузка, поиск, трансформации, манипуляции с файлами и т.д.) все перехватываемые исключения
+
+```
+{
+"timestamp": 1507104495025,
+"status": 404,
+"error": "Not Found",
+"message": "Path Not Found",
+"path": "/d"
+}
+```
+
+## Самодокументированное API
+
+Всё API представлено в двух самодукументированных форматах: HATEOAS и Swagger
+
+Само по себе API выполнено в стиле [HATEOAS](https://en.wikipedia.org/wiki/HATEOAS)
+
+Кроме того, имеется автосгенерированная документация и API в стиле swagger по адресам:
+
+http://filestorage.com/v2/api-docs (Swagger JSON API)
+
+и 
+
+http://filestorage.com/swagger-ui.html (Swagger UI)
+
+## Мониторинг состояния приложения
+
+Мониторинг состояния приложения, health-индикаторы, все endpoints, состояние памяти и многое другое доступно на /actuator endpoint.
+
+Документация на этот API находится здесь:
+https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-monitoring.html 
+
+Все actuator endpoints:
+
+```
+curl http://filestorage.com/actuator
+
+{
+"links": [
+{
+"rel": "self",
+"href": "http://localhost:8080/actuator"
+},
+{
+"rel": "trace",
+"href": "http://localhost:8080/actuator/trace"
+},
+{
+"rel": "mappings",
+"href": "http://localhost:8080/actuator/mappings"
+},
+{
+"rel": "info",
+"href": "http://localhost:8080/actuator/info"
+},
+{
+"rel": "health",
+"href": "http://localhost:8080/actuator/health"
+},
+{
+"rel": "autoconfig",
+"href": "http://localhost:8080/actuator/autoconfig"
+},
+{
+"rel": "auditevents",
+"href": "http://localhost:8080/actuator/auditevents"
+},
+{
+"rel": "dump",
+"href": "http://localhost:8080/actuator/dump"
+},
+{
+"rel": "env",
+"href": "http://localhost:8080/actuator/env"
+},
+{
+"rel": "metrics",
+"href": "http://localhost:8080/actuator/metrics"
+},
+{
+"rel": "heapdump",
+"href": "http://localhost:8080/actuator/heapdump"
+},
+{
+"rel": "configprops",
+"href": "http://localhost:8080/actuator/configprops"
+},
+{
+"rel": "beans",
+"href": "http://localhost:8080/actuator/beans"
+},
+{
+"rel": "logfile",
+"href": "http://localhost:8080/actuator/logfile"
+},
+{
+"rel": "shutdown",
+"href": "http://localhost:8080/actuator/shutdown"
+},
+{
+"rel": "loggers",
+"href": "http://localhost:8080/actuator/loggers"
+}
+]
+}
+```
