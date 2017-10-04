@@ -30,14 +30,14 @@
 
 ## Общее описание API
 
-При описании API сервер будет называться http://filestorage.com
+> При описании API сервер будет называться http://filestorage.com
 
-Файлы загружаются на endpoint http://filestorage.com/upload с помощью запроса post
+Файлы загружаются на endpoint http://filestorage.com/files с помощью запроса post
 
 Эквивалентная форма в html выглядит так:
 
 ```
-<form action="/upload"
+<form action="http://filestorage.com/files"
    enctype="multipart/form-data" method="post">
    <p><input type="file" name="имя файла.расширение"></p>
 </form>
@@ -46,7 +46,7 @@
 Эквивалентный запрос с помощью curl выглядит так:
 
 ```
-curl -F "name=имя файла.расширение -F "file=@/Users/I/Pictures/test.jpg" http://filestorage.com/upload
+curl -F "name=имя файла.расширение" -F "file=@/Users/I/Pictures/test.jpg" http://filestorage.com/files
 ```
 
 Результат загрузки от сервера в виде json будет выглядеть так:
@@ -63,7 +63,7 @@ curl -F "name=имя файла.расширение -F "file=@/Users/I/Pictures
 Хранилище файла - это каталог с именем id. В успешно созданное хранилище впоследствии можно добавлять файлы по этому же URL с добавлением Id, например:
 
 ```
-curl -F "name=имя файла.расширение -F "file=@/Users/I/Pictures/test.jpg" http://filestorage.com/upload/550e8400-e29b-41d4-a716-44665544000
+curl -F "name=имя файла.расширение -F "file=@/Users/I/Pictures/test.jpg" http://filestorage.com/files/550e8400-e29b-41d4-a716-44665544000
 ```
 
 При этом результат загрузки от сервера в виде json будет выглядеть так:
@@ -190,21 +190,23 @@ curl http://filestorage.com/files/search
 - Загрузить несколько файлов .epub в виде zip-архива
 - Проверить их на корректность
 - Если нет ошибок, удалить исходный .zip - файл  
-- Если есть ошибки - удалить весть storage
+- Если есть ошибки - удалить весь storage
+- Проверить все .epub-файлы на корректность
+- Если есть ошибки - удалить весь storage
 
 ```
 curl \
 -F "name=имя файла.расширение \
 -F "file=@/Users/I/Pictures/test.zip" \
-http://filestorage.com/upload/550e8400-e29b-41d4-a716-44665544000?transform=unzip,iferror,deletestorage,else,epubverify,iferror,deletestorage,else,{deleteorig,epubmerge}
+http://filestorage.com/files?transform=unzip,iferror,deletestorage,else,epubverify,iferror,deletestorage,else,{deleteorig,epubmerge}
 ```
-Как видно из примера, операции конвеера можно группирровать с помощью фигурных скобок
+> Как видно из примера, операции конвеера можно группирровать с помощью фигурных скобок. Это особенно удобно для группировки блоков if* и else
 
 > В седующей версии продукта будут предложены более изощрённые способы управления конвеером трансформаций.
 
 ## Обработка ошибок
 
-При возникновении ошибок на любом этапе (загрузка, поиск, трансформации, манипуляции с файлами и т.д.) все перехватываемые исключения
+При возникновении ошибок на любом этапе (загрузка, поиск, трансформации, манипуляции с файлами и т.д.) все перехватываемые исключения отображаются в виде:
 
 ```
 {
@@ -317,6 +319,7 @@ curl http://filestorage.com/actuator
 - Описание трансформаторов и форматов их выходных файлов
 - Описание механизма аутентификации
 - Более гибкий механизм описания заданий
+- Обсуждение и формализация файндеров
 
 ## Аутентификация
 
