@@ -9,4 +9,6 @@ public class Files {
     String name;
     Date uploaded;
     String user;
+    String magnetLink;
+
 }
